@@ -4,6 +4,7 @@ import { getSpritePath, useTheme, toggleTheme, getTheme, themedDisplayName } fro
 import IncidentBadge from './IncidentBadge'
 import { postSetting } from '../permissions'
 import { officeHttpBase } from '../serverUrl'
+import { t, useLocale, getLocale, toggleLocale, type Locale } from '../i18n'
 
 export function getAvatarSrc(role: string, agentId?: string): string {
   const charBase = ROLE_TO_CHAR[role] ?? 'employee-3'
@@ -39,18 +40,19 @@ const EMOJI_PICKER = ['👍', '👎', '😊', '🎉', '😡', '🔥', '💯']
 // the chat header only shows the level and how to change it. Absent until
 // the route exists.
 const SETTINGS_URL = `${officeHttpBase()}/settings`
-const LOG_PROMPTS_WHAT: Record<string, string> = {
-  off:     'state only — no prompt or reply text is stored, broadcast or shown',
-  summary: 'the first 200 characters of each prompt and reply',
-  full:    'prompts and replies up to 2000 characters',
+const LOG_PROMPTS_WHAT_KEY: Record<string, string> = {
+  off:     'slackChat.logPromptsOff',
+  summary: 'slackChat.logPromptsSummary',
+  full:    'slackChat.logPromptsFull',
 }
 function logPromptsHint(level: string): string {
-  return [
-    `Prompt logging: ${level} — ${LOG_PROMPTS_WHAT[level] ?? 'unknown level'}.`,
-    'A server setting (~/.agent-office/settings.json); change it with the office token:',
-    `curl -X POST ${SETTINGS_URL} -H "Authorization: Bearer $(cat ~/.agent-office/auth-token)" -H 'Content-Type: application/json' -d '{"logPrompts":"${level === 'off' ? 'summary' : 'off'}"}'`,
-  ].join('\n')
+  const what = LOG_PROMPTS_WHAT_KEY[level] ? t(LOG_PROMPTS_WHAT_KEY[level]) : t('slackChat.logPromptsUnknown')
+  const curl = `curl -X POST ${SETTINGS_URL} -H "Authorization: Bearer $(cat ~/.agent-office/auth-token)" -H 'Content-Type: application/json' -d '{"logPrompts":"${level === 'off' ? 'summary' : 'off'}"}'`
+  return t('slackChat.logPromptsHint', { level, what, curl })
 }
+
+const OTHER_LOCALE: Record<Locale, Locale> = { en: 'zh-TW', 'zh-TW': 'en' }
+const LOCALE_SHORT: Record<Locale, string> = { en: 'EN', 'zh-TW': '中' }
 
 interface SlackChatProps {
   messages: ChatMessage[]
@@ -74,6 +76,7 @@ interface SlackChatProps {
 const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggleMute, onVolumeChange, onSendMessage, onReaction, autoTypeText, dayPhase, typingUser, lastSeenId, readOnly = false }) => {
   const theme = useTheme()
   void theme // Why: subscribe so avatars re-render when /the-office toggles
+  const locale = useLocale()
   const bodyRef = useRef<HTMLDivElement>(null)
   const [inputText, setInputText] = useState('')
   const [showSlashHint, setShowSlashHint] = useState(false)
@@ -193,13 +196,20 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
           <div
             className={`slack-cron-toggle ${cronPaused ? 'paused' : 'active'}`}
             onClick={toggleCron}
-            title={cronPaused ? 'Chat monitor paused — click to resume' : 'Chat monitor active — click to pause'}
+            title={cronPaused ? t('slackChat.cronPaused') : t('slackChat.cronActive')}
           >
             <div className="slack-cron-track">
               <div className="slack-cron-thumb" />
             </div>
-            <span className="slack-cron-label">{cronPaused ? 'AI Off' : 'AI On'}</span>
+            <span className="slack-cron-label">{cronPaused ? t('slackChat.aiOff') : t('slackChat.aiOn')}</span>
           </div>
+          <button
+            className="slack-lang-btn"
+            onClick={toggleLocale}
+            title={t('lang.toggleTo', { lang: t(`lang.${OTHER_LOCALE[locale] === 'zh-TW' ? 'zhTW' : 'en'}`) })}
+          >
+            {LOCALE_SHORT[locale]}
+          </button>
           <button className="slack-mute-btn" onClick={onToggleMute}>
             {muted ? '🔇' : volume < 0.4 ? '🔈' : '🔊'}
           </button>
@@ -210,7 +220,7 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
             value={Math.round(volume * 100)}
             onChange={e => onVolumeChange(Number(e.target.value) / 100)}
             className="slack-volume-slider"
-            title={`Volume: ${Math.round(volume * 100)}%`}
+            title={t('slackChat.volume', { pct: Math.round(volume * 100) })}
           />
         </div>
       </div>
@@ -222,19 +232,17 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
         <div className="slack-settings-row">
           {logPrompts && (
             <span className={`slack-logprompts ${logPrompts}`} title={logPromptsHint(logPrompts)} data-testid="log-prompts">
-              prompts: {logPrompts}
+              {t('slackChat.promptsLevel', { level: logPrompts })}
             </span>
           )}
           {!readOnly && answerHere !== null && (
             <span
               className={`slack-answer-toggle ${answerHere ? 'on' : 'off'}`}
               onClick={toggleAnswerHere}
-              title={answerHere
-                ? 'Permission dialogs can be answered from the office (a card appears while Claude waits) — click to turn off'
-                : 'Permission dialogs are answered in the terminal only — click to let the office answer them'}
+              title={answerHere ? t('slackChat.answerHereTooltipOn') : t('slackChat.answerHereTooltipOff')}
               data-testid="answer-permissions"
             >
-              Answer here: {answerHere ? 'on' : 'off'}
+              {t('slackChat.answerHere', { state: answerHere ? t('slackChat.answerHereOn') : t('slackChat.answerHereOff') })}
             </span>
           )}
         </div>
@@ -287,7 +295,7 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
                           key={i}
                           className="slack-reaction"
                           onClick={() => handleReaction(msg, r)}
-                          title="Click to remove"
+                          title={t('slackChat.clickToRemove')}
                         >{r}</span>
                       ))}
                     </div>
@@ -307,7 +315,7 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
               </div>
               {lastSeenId != null && msg.id === lastSeenId && (
                 <div className="slack-seen-row">
-                  <span className="slack-seen-label">Seen</span>
+                  <span className="slack-seen-label">{t('slackChat.seen')}</span>
                   <img src={getAvatarSrc('assistant')} className="slack-seen-avatar" alt="seen" />
                 </div>
               )}
@@ -320,7 +328,7 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
               <img src={getAvatarSrc('assistant')} alt="typing" className="slack-avatar-img" />
             </div>
             <div className="slack-msg-content">
-              <div className="slack-typing-label">{typingUser} is typing</div>
+              <div className="slack-typing-label">{t('slackChat.isTyping', { name: typingUser })}</div>
               <div className="slack-typing-dots"><span/><span/><span/></div>
             </div>
           </div>
@@ -342,7 +350,7 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
           <input
             type="text"
             className="slack-input-field"
-            placeholder="Message #office-general"
+            placeholder={t('slackChat.messagePlaceholder')}
             value={inputText}
             onChange={e => {
               const val = e.target.value
@@ -360,7 +368,7 @@ const SlackChat: React.FC<SlackChatProps> = ({ messages, muted, volume, onToggle
                 if (trimmed === '/the-office' || trimmed === '/theoffice') {
                   toggleTheme()
                   const nowOn = getTheme() === 'office'
-                  onSendMessage?.(nowOn ? '🧻 Dunder Mifflin mode: ON. Identity theft is not a joke.' : '🔁 Office theme: OFF')
+                  onSendMessage?.(nowOn ? t('slackChat.officeThemeOn') : t('slackChat.officeThemeOff'))
                 } else {
                   onSendMessage?.(trimmed)
                 }

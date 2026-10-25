@@ -22,13 +22,14 @@
 import React, { useEffect, useState } from 'react'
 import { Agent, SessionInfo } from '../types'
 import { mainId, isMainAgent, mainTone, mainPillText, shortModel, projectFromCwd, type PillTone } from '../mainState'
+import { t, useLocale } from '../i18n'
 
 // Main-thread activity counts as "busy" for this long after the last tool call
 // (only used while no main record has arrived — an old server)
 const BUSY_WINDOW_MS = 10_000
 
 /** The first line of an unhooked pill's tooltip: how to see what the session is doing */
-export const NOT_HOOKED_HINT = 'Not hooked — run `npm run install-hooks` (or /plugin install agent-office) to see what it is doing'
+export function notHookedHint(): string { return t('sessionStrip.notHookedHint') }
 
 interface SessionStripProps {
   sessions: SessionInfo[]
@@ -46,25 +47,26 @@ function describe(session: SessionInfo, claude: Agent | undefined, workerCount: 
   const mainState = claude?.mainState ?? session.main?.state
   const unhooked = session.hooked === false
   const lines = [
-    unhooked ? NOT_HOOKED_HINT : null,
+    unhooked ? notHookedHint() : null,
     pillLabel(session),
-    session.title && session.project ? `project: ${session.project}` : null,
-    unhooked && session.registry?.name && session.project && session.registry.name !== session.project ? `project: ${session.project}` : null,
-    session.cwd ? `cwd: ${session.cwd}` : null,
-    session.model || claude?.model ? `model: ${session.model ?? claude?.model}` : null,
-    session.source ? `started: ${session.source}` : null,
+    session.title && session.project ? t('sessionStrip.project', { project: session.project }) : null,
+    unhooked && session.registry?.name && session.project && session.registry.name !== session.project ? t('sessionStrip.project', { project: session.project }) : null,
+    session.cwd ? t('sessionStrip.cwd', { cwd: session.cwd }) : null,
+    session.model || claude?.model ? t('sessionStrip.model', { model: session.model ?? claude?.model ?? '' }) : null,
+    session.source ? t('sessionStrip.started', { source: session.source }) : null,
     unhooked
-      ? (session.registry?.status ? `claude: ${session.registry.status} (registry)` : null)
-      : mainState ? `claude: ${mainState}${claude?.statusText ? ` — ${claude.statusText}` : ''}` : session.lastStatus ? `claude: ${session.lastStatus}` : null,
-    session.registry ? `pid ${session.registry.pid}${session.registry.version ? ` · Claude Code ${session.registry.version}` : ''}` : null,
-    unhooked ? null : `workers: ${workerCount} (${workingCount} working)`,
-    session.state === 'ended' ? `ended${session.reason ? ` (${session.reason})` : ''}` : null,
-    `session ${session.id}`,
+      ? (session.registry?.status ? t('sessionStrip.claudeRegistry', { status: session.registry.status }) : null)
+      : mainState ? t(claude?.statusText ? 'sessionStrip.claudeStateWithStatus' : 'sessionStrip.claudeState', { state: mainState, status: claude?.statusText ?? '' }) : session.lastStatus ? t('sessionStrip.claudeState', { state: session.lastStatus }) : null,
+    session.registry ? t(session.registry.version ? 'sessionStrip.pidVersion' : 'sessionStrip.pid', { pid: session.registry.pid, version: session.registry.version ?? '' }) : null,
+    unhooked ? null : t('sessionStrip.workers', { count: workerCount, working: workingCount }),
+    session.state === 'ended' ? t(session.reason ? 'sessionStrip.endedReason' : 'sessionStrip.ended', { reason: session.reason ?? '' }) : null,
+    t('sessionStrip.session', { id: session.id }),
   ]
   return lines.filter(Boolean).join('\n')
 }
 
 const SessionStrip: React.FC<SessionStripProps> = ({ sessions, agents }) => {
+  useLocale() // Why: re-render the strip's t() strings on a language toggle
   // Re-render once a second so the legacy busy dot goes idle after BUSY_WINDOW_MS
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -79,7 +81,7 @@ const SessionStrip: React.FC<SessionStripProps> = ({ sessions, agents }) => {
     (a.state === 'ended' ? 1 : 0) - (b.state === 'ended' ? 1 : 0) || (a.startedAt ?? 0) - (b.startedAt ?? 0))
 
   return (
-    <div className="session-strip" aria-label="Claude Code sessions">
+    <div className="session-strip" aria-label={t('sessionStrip.ariaLabel')}>
       {ordered.map(session => {
         const unhooked = session.hooked === false
         const claude = agents.find(a => a.id === mainId(session.id) && a.state !== 'completed')
@@ -110,10 +112,10 @@ const SessionStrip: React.FC<SessionStripProps> = ({ sessions, agents }) => {
           >
             <span className={`session-dot ${tone}`} title={unhooked && registryStatus ? registryStatus : undefined} />
             <span className="session-pill-project">{pillLabel(session)}</span>
-            {model && <span className="session-pill-model" title={`model: ${session.model ?? claude?.model}`}>{model}</span>}
+            {model && <span className="session-pill-model" title={t('sessionStrip.model', { model: session.model ?? claude?.model ?? '' })}>{model}</span>}
             {unhooked
-              ? <span className="session-pill-unhooked" title={NOT_HOOKED_HINT}>not hooked</span>
-              : <span className="session-pill-count" title={`${mine.length} worker${mine.length === 1 ? '' : 's'}`}>{mine.length}</span>}
+              ? <span className="session-pill-unhooked" title={notHookedHint()}>{t('sessionStrip.notHooked')}</span>
+              : <span className="session-pill-count" title={t(mine.length === 1 ? 'sessionStrip.workerCount' : 'sessionStrip.workerCountPlural', { n: mine.length })}>{mine.length}</span>}
             {stateText && <span className={`session-pill-state ${tone}`}>{stateText}</span>}
           </div>
         )

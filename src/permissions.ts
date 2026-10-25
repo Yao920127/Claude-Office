@@ -15,6 +15,7 @@
 
 import type { OfficeEvent, PendingPermission, PermissionSuggestion } from './types'
 import { officeHttpBase } from './serverUrl'
+import { t } from './i18n'
 
 export type PermissionDecision = 'allow' | 'allow-remember' | 'deny'
 
@@ -140,18 +141,19 @@ export function postSetting(body: Record<string, unknown>): Promise<boolean> {
 // Words on the card
 // ---------------------------------------------------------------------------
 
-const VERB_BY_TOOL: Record<string, string> = {
-  Bash: 'run', Write: 'write', Edit: 'edit', MultiEdit: 'edit', NotebookEdit: 'edit', Read: 'read',
-  WebFetch: 'fetch', WebSearch: 'search', Glob: 'find files', Grep: 'search',
+const VERB_KEY_BY_TOOL: Record<string, string> = {
+  Bash: 'permissions.verb.run', Write: 'permissions.verb.write', Edit: 'permissions.verb.edit',
+  MultiEdit: 'permissions.verb.edit', NotebookEdit: 'permissions.verb.edit', Read: 'permissions.verb.read',
+  WebFetch: 'permissions.verb.fetch', WebSearch: 'permissions.verb.search', Glob: 'permissions.verb.findFiles', Grep: 'permissions.verb.search',
 }
 
 /** "Claude wants to run Bash", "... write probe.txt", "... use mcp__github__create_pull_request". */
 export function permissionTitle(p: Pick<PendingPermission, 'toolName' | 'summary'>): string {
-  const verb = VERB_BY_TOOL[p.toolName]
-  if (!verb) return `Claude wants to use ${p.toolName}`
-  if (p.toolName === 'Bash') return 'Claude wants to run Bash'
+  const verbKey = VERB_KEY_BY_TOOL[p.toolName]
+  if (!verbKey) return t('permissions.wantsToUse', { tool: p.toolName })
+  if (p.toolName === 'Bash') return t('permissions.wantsToRunBash')
   const what = p.summary && p.summary !== p.toolName ? p.summary : p.toolName
-  return `Claude wants to ${verb} ${what}`
+  return t('permissions.wantsTo', { verb: t(verbKey), what })
 }
 
 /** acceptEdits -> accept-edits, bypassPermissions -> bypass-permissions. */
@@ -164,12 +166,12 @@ function kebab(s: string): string {
  * (Claude Code PermissionUpdate objects: setMode, addRules, addDirectories...).
  */
 export function describeSuggestions(suggestions: PermissionSuggestion[] | undefined): string {
-  if (!suggestions?.length) return 'Nothing to remember'
+  if (!suggestions?.length) return t('permissions.nothingToRemember')
   const parts = suggestions.map(s => {
     const where = typeof s.destination === 'string' ? ` (${kebab(s.destination)})` : ''
     switch (s.type) {
       case 'setMode':
-        return `switch this session to ${typeof s.mode === 'string' ? kebab(s.mode) : 'another mode'}`
+        return t('permissions.switchMode', { mode: typeof s.mode === 'string' ? kebab(s.mode) : t('permissions.anotherMode') })
       case 'addRules': case 'replaceRules': {
         const rules = Array.isArray(s.rules) ? s.rules : []
         const names = rules.map(r => {
@@ -178,22 +180,22 @@ export function describeSuggestions(suggestions: PermissionSuggestion[] | undefi
           return typeof rule.ruleContent === 'string' && rule.ruleContent ? `${tool}(${rule.ruleContent})` : tool
         })
         const behavior = typeof s.behavior === 'string' ? s.behavior : 'allow'
-        return `always ${behavior} ${names.join(', ') || 'this'}${where}`
+        return t('permissions.always', { behavior, names: names.join(', ') || t('permissions.this'), where })
       }
       case 'addDirectories': {
         const dirs = Array.isArray(s.directories) ? s.directories.map(String) : []
-        return `allow access to ${dirs.join(', ') || 'this directory'}${where}`
+        return t('permissions.allowAccessTo', { dirs: dirs.join(', ') || t('permissions.thisDirectory'), where })
       }
       default:
-        return `${typeof s.type === 'string' ? kebab(s.type) : 'remember this'}${where}`
+        return `${typeof s.type === 'string' ? kebab(s.type) : t('permissions.rememberThis', { where: '' })}${where}`
     }
   })
-  return `Allow, and ${parts.join('; ')}`
+  return t('permissions.allowAnd', { parts: parts.join('; ') })
 }
 
 /** The line a resolved card shows while it fades. */
 export function fadeLabel(resolved: { status: string; decidedBy: string }): string {
-  if (resolved.decidedBy === 'timeout') return 'timed out'
-  if (resolved.decidedBy === 'office') return resolved.status === 'denied' ? 'denied from the office' : 'allowed from the office'
-  return 'answered in the terminal'
+  if (resolved.decidedBy === 'timeout') return t('permissions.timedOut')
+  if (resolved.decidedBy === 'office') return resolved.status === 'denied' ? t('permissions.deniedFromOffice') : t('permissions.allowedFromOffice')
+  return t('permissions.answeredInTerminal')
 }

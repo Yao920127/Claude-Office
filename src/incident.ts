@@ -32,6 +32,7 @@
 import { useSyncExternalStore } from 'react'
 import type { SignalEvent, SignalKind } from './types'
 import { signalFamily, signalOutcome, signalFailureLabel, isSignalKind } from './signals'
+import { t as _t, getLocale, type Locale } from './i18n'
 
 export type VariantName = 'none' | 'incident'
 
@@ -404,30 +405,34 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 
-const ROOT_CAUSES_WITHOUT_FAILURES =['a Friday deploy', 'DNS. it is always DNS.', 'a config change nobody remembers', 'a null. always a null.']
+const ROOT_CAUSES_WITHOUT_FAILURES: Record<Locale, string[]> = {
+  en: ['a Friday deploy', 'DNS. it is always DNS.', 'a config change nobody remembers', 'a null. always a null.'],
+  'zh-TW': ['星期五的部署', 'DNS。永遠都是 DNS。', '沒人記得的設定變更', '一個 null。永遠是 null。'],
+}
 
 /** One-line "postmortem card" for the chat. `bystanders` = agents in the room when nobody's tool failed. */
 export function formatPostmortem(summary: IncidentSummary, bystanders: string[] = []): string {
-  const parts = [`📋 Postmortem ${summary.id}`, `all clear after ${formatDuration(summary.durationMs)}`]
+  const parts = [_t('incident.postmortem.title', { id: summary.id }), _t('incident.postmortem.allClear', { duration: formatDuration(summary.durationMs) })]
 
   if (summary.failureCount === 0) {
-    parts.push('no tool failures')
+    parts.push(_t('incident.postmortem.noFailures'))
   } else {
     const byTool = Object.entries(summary.tools)
       .sort((a, b) => b[1] - a[1])
       .map(([tool, n]) => `${tool} ×${n}`)
       .join(', ')
-    parts.push(`${summary.failureCount} tool failure${summary.failureCount === 1 ? '' : 's'} (${byTool})`)
+    parts.push(_t(summary.failureCount === 1 ? 'incident.postmortem.failures' : 'incident.postmortem.failuresPlural', { n: summary.failureCount, byTool }))
   }
 
   const who = summary.participants.length > 0 ? summary.participants : bystanders
-  parts.push(who.length > 0 ? `responders: ${who.slice(0, 6).join(', ')}` : 'responders: just the boss and Claude')
+  parts.push(who.length > 0 ? _t('incident.postmortem.responders', { who: who.slice(0, 6).join(', ') }) : _t('incident.postmortem.respondersNone'))
 
   // A named failure (a deploy, build or test signal) beats the bare tool name
+  const causePool = ROOT_CAUSES_WITHOUT_FAILURES[getLocale()]
   const cause = (summary.cause ? clip(summary.cause, 140) : null)
     ?? summary.lastTool
-    ?? ROOT_CAUSES_WITHOUT_FAILURES[summary.startedAt % ROOT_CAUSES_WITHOUT_FAILURES.length]
-  parts.push(`root cause: ${cause}`)
+    ?? causePool[summary.startedAt % causePool.length]
+  parts.push(_t('incident.postmortem.rootCause', { cause }))
 
   return parts.join(' · ')
 }
@@ -444,25 +449,25 @@ export function incidentTransitionLines(t: IncidentTransition, agentsInRoom: { n
       case 'failures': {
         const n = recentFailures(t.state.failures, t.state.startedAt ?? Date.now()).length
         const last = t.state.failures[t.state.failures.length - 1]
-        lines.push(`🔴 ${n} tool failures in 5 min — INCIDENT MODE ON. Prod is down. Everyone to the war room.${last?.label ? ` Latest: ${clip(last.label, 120)}.` : ''}`)
+        lines.push(_t('incident.transition.failures', { n }) + (last?.label ? _t('incident.transition.failuresLatest', { label: clip(last.label, 120) }) : ''))
         break
       }
       case 'deploy-fail': {
         const deploy = [...t.state.failures].reverse().find(f => f.tool === 'deploy')
-        lines.push(`🔴 ${deploy?.target ? `The ${deploy.target} deploy` : 'A deploy'} failed — INCIDENT MODE ON. Prod is down. Everyone to the war room.`)
+        lines.push(deploy?.target ? _t('incident.transition.deployFailTarget', { target: deploy.target }) : _t('incident.transition.deployFail'))
         break
       }
       case 'event':
-        lines.push('🚨 Mini-incident declared (90 s) — rollback in progress. Nobody deploys until the graph is flat.')
+        lines.push(_t('incident.transition.event'))
         break
       case 'manual':
-        lines.push('🔴 INCIDENT MODE ON — declared by the boss. Everyone to the war room.')
+        lines.push(_t('incident.transition.manual'))
         break
       case 'url':
-        lines.push('🔴 INCIDENT MODE pinned by ?variant=incident — type /all-clear to end it.')
+        lines.push(_t('incident.transition.url'))
         break
       case 'restored':
-        lines.push('🔴 Still in INCIDENT MODE from last time — type /all-clear when prod is back.')
+        lines.push(_t('incident.transition.restored'))
         break
       case 'remote':
         break
@@ -491,10 +496,21 @@ export const INCIDENT_LINES = {
   bossReply: ['all clear. nobody deploys on Friday again.', 'postmortem at 10, blameless, bring pizza', 'good catch. write it down for the timeline.', 'I know. I KNOW.'],
 } as const
 
+const INCIDENT_LINES_ZH_TW: Record<keyof typeof INCIDENT_LINES, string[]> = {
+  spawn: ['收到呼叫，馬上處理。', '加入作戰會議，誰是事故指揮官？', '凌晨 2:14 上線，麻煩送咖啡', '眼睛還沒睜開電腦先開了'],
+  work: ['在 4f2a1c 和 main 之間二分搜尋問題', '不是 DNS。再檢查一下 DNS。', '盯著上線日誌，每秒 400 個悲傷請求', '第一次讀這份 runbook', '加上一個早該有的 feature flag'],
+  done: ['回滾完成，錯誤率 0.1%', '根本原因：一個 null。永遠是 null。', '熱修復已合併，之後補了測試', '狀態頁恢復綠燈'],
+  coffee: ['第三杯咖啡了，別說我', '這台機器是唯一還正常運作的東西', '咖啡不能取代睡眠，但還是試試看'],
+  water: ['喝點水。然後再喝咖啡。', '凌晨兩點還這麼自律地補水', '飲水機也掛了'],
+  bossReply: ['狀況解除。以後不要星期五部署了。', '十點開事故檢討，不追究個人，記得帶披薩', '抓得好。寫進時間軸裡。', '我知道。我知道！'],
+}
+
+const INCIDENT_LINES_BY_LOCALE: Record<Locale, Record<keyof typeof INCIDENT_LINES, readonly string[]>> = { en: INCIDENT_LINES, 'zh-TW': INCIDENT_LINES_ZH_TW }
+
 export type IncidentLineKind = keyof typeof INCIDENT_LINES
 
 export function pickIncidentLine(kind: IncidentLineKind): string {
-  const pool = INCIDENT_LINES[kind]
+  const pool = INCIDENT_LINES_BY_LOCALE[getLocale()][kind]
   return pool[Math.floor(Math.random() * pool.length)]
 }
 

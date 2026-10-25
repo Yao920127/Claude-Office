@@ -6,9 +6,11 @@
 
 import React, { useEffect, useReducer } from 'react'
 import { useIncident, formatClock } from '../incident'
+import { t, useLocale } from '../i18n'
 
 const IncidentBadge: React.FC = () => {
   const incident = useIncident()
+  useLocale() // Why: re-render the badge's t() strings on a language toggle
   const active = incident.variant === 'incident'
   const [, tick] = useReducer((n: number) => n + 1, 0)
 
@@ -20,11 +22,11 @@ const IncidentBadge: React.FC = () => {
 
   if (!active) return null
   const elapsed = Date.now() - (incident.startedAt ?? Date.now())
-  const what = incident.mini ? 'MINI-INCIDENT' : 'INCIDENT'
+  const what = incident.mini ? t('incident.badge.mini') : t('incident.badge.incident')
   return (
     <div
       className="slack-incident-banner"
-      title={incident.pinned ? 'Pinned by ?variant=incident — /all-clear to end' : 'Type /all-clear when prod is back'}
+      title={incident.pinned ? t('incident.badge.pinned') : t('incident.badge.hint')}
     >
       <span className="slack-incident-dot" />
       🔥 {what} {formatClock(elapsed)}

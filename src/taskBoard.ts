@@ -14,6 +14,7 @@
 
 import { useSyncExternalStore } from 'react'
 import type { OfficeEvent, SessionInfo } from './types'
+import { t } from './i18n'
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed'
 
@@ -69,10 +70,10 @@ export const COLUMN_MAX = 6
 export const BOARD_RECT = Object.freeze({ left: 74.85, top: 26.1, width: 10.6, height: 9.9, skewDeg: 23.1 })
 
 /** The columns the art draws, left to right, and how much of the board each takes (its dividers, measured). */
-export const COLUMNS: ReadonlyArray<{ status: TaskStatus; title: string; width: number }> = Object.freeze([
-  { status: 'pending', title: 'To do', width: 29 },
-  { status: 'in_progress', title: 'In progress', width: 40 },
-  { status: 'completed', title: 'Done', width: 31 },
+export const COLUMNS: ReadonlyArray<{ status: TaskStatus; titleKey: string; width: number }> = Object.freeze([
+  { status: 'pending', titleKey: 'taskBoard.column.todo', width: 29 },
+  { status: 'in_progress', titleKey: 'taskBoard.column.inProgress', width: 40 },
+  { status: 'completed', titleKey: 'taskBoard.column.done', width: 31 },
 ])
 
 const STATUSES = new Set<TaskStatus>(['pending', 'in_progress', 'completed'])
@@ -217,13 +218,13 @@ export function clip(text: string | undefined, max = 60): string {
 
 /** What hovering a post-it says: the activeForm while in progress, what blocks a waiting one, who owns it. */
 export function taskCaption(task: BoardTask, board: TaskBoardInfo): string {
-  const subject = clip(task.subject, 90) || 'untitled task'
+  const subject = clip(task.subject, 90) || t('taskBoard.caption.untitled')
   let text: string
-  if (task.status === 'in_progress') text = `In progress: ${clip(task.activeForm, 90) || subject}`
-  else if (task.status === 'completed') text = `Done: ${subject}`
+  if (task.status === 'in_progress') text = t('taskBoard.caption.inProgress', { text: clip(task.activeForm, 90) || subject })
+  else if (task.status === 'completed') text = t('taskBoard.caption.done', { text: subject })
   else {
     const blockers = task.blockedBy.filter(id => board.tasks.some(t => t.id === id && t.status !== 'completed'))
-    text = `To do: ${subject}${blockers.length ? ` (blocked by ${blockers.map(id => `#${id}`).join(', ')})` : ''}`
+    text = t('taskBoard.caption.todo', { text: subject }) + (blockers.length ? t('taskBoard.caption.blockedBy', { ids: blockers.map(id => `#${id}`).join(', ') }) : '')
   }
   return `#${task.id} ${text}${task.owner ? ` · ${clip(task.owner, 30)}` : ''}`
 }
@@ -244,18 +245,18 @@ export function boardChatLines(board: TaskBoardInfo): string[] {
   const n = boardCounts(board)
   const total = n.pending + n.in_progress + n.completed
   const blocked = board.tasks.filter(t => t.status === 'pending' && isBlocked(t, board)).length
-  const todo = n.pending ? `${n.pending} to do${blocked ? ` (${blocked} blocked)` : ''}` : ''
+  const todo = n.pending ? t('taskBoard.chat.toDo', { n: n.pending }) + (blocked ? t('taskBoard.chat.blockedSuffix', { n: blocked }) : '') : ''
   const doing = board.tasks.filter(t => t.status === 'in_progress').sort((a, b) => compareIds(a.id, b.id))
   const lines: string[] = []
   if (doing.length) {
-    lines.push(`${todo ? `${todo}, ` : ''}${n.in_progress} in progress: ${clip(doing[0].subject) || `#${doing[0].id}`}`)
-    if (doing[0].activeForm) lines.push(`${clip(doing[0].activeForm)} — ${n.completed} of ${total} done`)
+    lines.push(t('taskBoard.chat.inProgress', { todo: todo ? `${todo}, ` : '', n: n.in_progress, subject: clip(doing[0].subject) || `#${doing[0].id}` }))
+    if (doing[0].activeForm) lines.push(t('taskBoard.chat.progressDone', { activeForm: clip(doing[0].activeForm), done: n.completed, total }))
   } else if (n.pending) {
     const next = board.tasks.filter(t => t.status === 'pending' && !isBlocked(t, board)).sort((a, b) => compareIds(a.id, b.id))[0]
-    lines.push(next ? `${todo}, next up: ${clip(next.subject) || `#${next.id}`}` : `${todo}, all waiting on something`)
-    if (n.completed) lines.push(`${n.completed} of ${total} done, ${n.pending} to go`)
+    lines.push(next ? t('taskBoard.chat.nextUp', { todo, subject: clip(next.subject) || `#${next.id}` }) : t('taskBoard.chat.allWaiting', { todo }))
+    if (n.completed) lines.push(t('taskBoard.chat.toGo', { done: n.completed, total, pending: n.pending }))
   } else {
-    lines.push(n.completed === 1 ? 'the one task on the board is done' : `all ${n.completed} tasks done`)
+    lines.push(n.completed === 1 ? t('taskBoard.chat.oneTaskDone') : t('taskBoard.chat.allTasksDone', { n: n.completed }))
   }
   return lines
 }

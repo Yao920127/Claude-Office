@@ -14,6 +14,7 @@
 
 import { useSyncExternalStore } from 'react'
 import type { OfficeEvent } from './types'
+import { t } from './i18n'
 
 export interface ContextStatus {
   /** Percent of the context window in use (null early in a session) */
@@ -313,10 +314,10 @@ function windowLine(s: SessionStatus): string {
   const size = s.context.size ? formatTokensExact(s.context.size) : '?'
   const model = s.modelId || s.model || 'an unnamed model'
   switch (s.estimate?.basis) {
-    case '1m-tag':   return `window ${size} tokens: the session runs the [1m] variant of ${model}`
-    case 'unknown':  return `window ${size} tokens assumed: ${model} is not in the office's model table, so the reading is approximate`
-    case 'overflow': return `window ${size} tokens assumed: more than 200,000 are in use, so ${model} must run its 1M variant (approximate)`
-    default:         return `window ${size} tokens for ${model} (Claude Code's model table)`
+    case '1m-tag':   return t('meters.windowLine.oneM', { size, model })
+    case 'unknown':  return t('meters.windowLine.unknown', { size, model })
+    case 'overflow': return t('meters.windowLine.overflow', { size, model })
+    default:         return t('meters.windowLine.default', { size, model })
   }
 }
 
@@ -328,13 +329,13 @@ export function estimateTip(s: SessionStatus): string[] {
   const size = s.context.size
   const tokens = s.estimate?.tokens
   return [
-    `MEMORY — ${sessionLabel(s)}: ${formatMemory(s)} of the context window` +
-      (tokens != null && size ? ` (${formatTokensExact(tokens)} / ${formatTokensExact(size)} tokens)` : '') + ' · est.',
+    t('meters.estimateTip.line1', { session: sessionLabel(s), memory: formatMemory(s) }) +
+      (tokens != null && size ? t('meters.estimateTip.line1Tokens', { tokens: formatTokensExact(tokens), size: formatTokensExact(size) }) : '') + t('meters.estimateTip.line1Est'),
     s.estimate?.compacted
-      ? 'compacted: the window was just emptied; the next reply in the transcript refills the meter'
-      : 'estimated from the session transcript (the last reply\'s usage) because no status line is registered for this session',
+      ? t('meters.estimateTip.compacted')
+      : t('meters.estimateTip.estimated'),
     windowLine(s),
-    `payroll and electricity need the status line: ${STATUS_LINE_INSTALL}`,
+    t('meters.estimateTip.needStatusLine', { cmd: STATUS_LINE_INSTALL }),
   ]
 }
 
@@ -344,11 +345,11 @@ export function estimateTip(s: SessionStatus): string[] {
  * them up, so the meter names the status line and how to get it.
  */
 export function needsStatusLineTip(meter: 'PAYROLL' | 'ELECTRICITY', estimated: SessionStatus[]): string[] {
-  const what = meter === 'PAYROLL' ? 'cost' : 'tokens per minute'
+  const what = meter === 'PAYROLL' ? t('meters.needsStatusLineTip.cost') : t('meters.needsStatusLineTip.tokensPerMin')
   return [
-    `${meter} needs the status line — Claude Code reports ${what} only to its statusLine command`,
-    `no status line is registered for ${estimated.length === 1 ? 'this session' : `these ${estimated.length} sessions`} (a plugin install or claude -p); MEMORY is estimated from the transcript`,
-    `register it with: ${STATUS_LINE_INSTALL} (from the Claude-Office checkout)`,
-    ...estimated.slice(0, 4).map(s => `${sessionLabel(s)}: needs the status line`),
+    t('meters.needsStatusLineTip.title', { meter, what }),
+    t(estimated.length === 1 ? 'meters.needsStatusLineTip.noneRegistered' : 'meters.needsStatusLineTip.noneRegisteredPlural', { n: estimated.length }),
+    t('meters.needsStatusLineTip.register', { cmd: STATUS_LINE_INSTALL }),
+    ...estimated.slice(0, 4).map(s => t('meters.needsStatusLineTip.row', { session: sessionLabel(s) })),
   ]
 }

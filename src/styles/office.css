@@ -1287,6 +1287,22 @@
   -webkit-app-region: no-drag;
 }
 
+.slack-lang-btn {
+  background: none;
+  border: 1px solid #4a4b50;
+  border-radius: 3px;
+  color: #d8d8d8;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  -webkit-app-region: no-drag;
+}
+.slack-lang-btn:hover {
+  background: #3c3d41;
+}
+
 .slack-volume-slider {
   width: 50px;
   height: 3px;

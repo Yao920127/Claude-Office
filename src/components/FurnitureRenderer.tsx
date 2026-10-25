@@ -1,6 +1,7 @@
 import React from 'react'
 import { FurnitureItem } from '../rooms'
 import { ASSETS } from '../assets'
+import { t, useLocale } from '../i18n'
 
 interface FurnitureRendererProps {
   items: FurnitureItem[]
@@ -31,10 +32,12 @@ const CLICKABLE_TYPES = new Set([
 ])
 
 const FurnitureRenderer: React.FC<FurnitureRendererProps> = ({ items, onItemClick }) => {
+  useLocale() // Why: re-render so furniture tooltips (t(item.label)) follow a language toggle
   return (
     <>
       {items.map(item => {
         const clickable = CLICKABLE_TYPES.has(item.type) || item.interactive
+        const label = item.label ? t(item.label) : undefined
 
         // Hotspots — invisible clickable zones over background art
         if (item.type === 'hotspot') {
@@ -53,7 +56,7 @@ const FurnitureRenderer: React.FC<FurnitureRendererProps> = ({ items, onItemClic
                 pointerEvents: 'auto',
                 cursor: 'pointer',
               }}
-              title={item.label}
+              title={label}
               onClick={onItemClick ? () => onItemClick(item.id) : undefined}
             />
           )
@@ -77,12 +80,12 @@ const FurnitureRenderer: React.FC<FurnitureRendererProps> = ({ items, onItemClic
               pointerEvents: clickable ? 'auto' : 'none',
               cursor: clickable ? 'pointer' : 'default',
             }}
-            title={item.label || (clickable ? 'Click to interact' : undefined)}
+            title={label || (clickable ? t('furniture.clickToInteract') : undefined)}
             onClick={clickable && onItemClick ? () => onItemClick(item.id) : undefined}
           >
             <img
               src={url}
-              alt={item.label || item.type}
+              alt={label || item.type}
               style={{
                 height: h,
                 width: 'auto',

@@ -25,6 +25,7 @@ import {
   type PermissionAction, type PermissionCardState, type PermissionDecision,
 } from '../permissions'
 import { playBell } from '../sounds'
+import { t, useLocale } from '../i18n'
 
 interface PermissionCardsProps {
   cards: PermissionCardState[]
@@ -40,6 +41,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 const PermissionCards: React.FC<PermissionCardsProps> = ({ cards, dispatch, readOnly = false }) => {
+  useLocale() // Why: re-render the cards' t() strings on a language toggle
   // One bell per card id, however many times the list re-renders or a deadline moves
   const rungRef = useRef<Set<string>>(new Set())
   useEffect(() => {
@@ -93,7 +95,7 @@ const PermissionCards: React.FC<PermissionCardsProps> = ({ cards, dispatch, read
   if (cards.length === 0) return null
 
   return (
-    <div className="perm-stack" role="region" aria-label="Permission requests">
+    <div className="perm-stack" role="region" aria-label={t('permissions.region')}>
       {cards.map(card => {
         const total = Math.max(1, card.deadline - card.createdAt)
         const left = Math.max(0, Math.min(1, (card.deadline - now) / total))
@@ -111,29 +113,29 @@ const PermissionCards: React.FC<PermissionCardsProps> = ({ cards, dispatch, read
               <span className="perm-where" title={card.cwd}>{where}</span>
             </div>
             <pre className="perm-detail">{card.detail || card.summary || card.toolName}</pre>
-            <div className="perm-timebar" title={card.resolved ? '' : `${secondsLeft}s before the terminal takes over`}>
+            <div className="perm-timebar" title={card.resolved ? '' : t('permissions.timebar', { seconds: secondsLeft })}>
               <div className={`perm-timebar-fill${left < 0.25 ? ' low' : ''}`} style={{ width: `${left * 100}%` }} />
             </div>
             {card.resolved ? (
               <div className="perm-outcome">{fadeLabel(card.resolved)}</div>
             ) : readOnly ? (
               <div className="perm-outcome perm-readonly" data-testid="permission-read-only">
-                answer it in the terminal (this page is read-only)
+                {t('permissions.readOnly')}
               </div>
             ) : (
               <div className="perm-actions">
-                <button className="perm-btn allow" disabled={busy} onClick={() => decide(card, 'allow')} title="Allow this call (y)">
-                  Allow
+                <button className="perm-btn allow" disabled={busy} onClick={() => decide(card, 'allow')} title={t('permissions.allowTooltip')}>
+                  {t('permissions.allow')}
                 </button>
                 {card.suggestions.length > 0 && (
                   <button className="perm-btn remember" disabled={busy} onClick={() => decide(card, 'allow-remember')} title={describeSuggestions(card.suggestions)}>
-                    Allow &amp; remember
+                    {t('permissions.allowRemember')}
                   </button>
                 )}
-                <button className="perm-btn deny" disabled={busy} onClick={() => decide(card, 'deny')} title="Deny this call (n)">
-                  Deny
+                <button className="perm-btn deny" disabled={busy} onClick={() => decide(card, 'deny')} title={t('permissions.denyTooltip')}>
+                  {t('permissions.deny')}
                 </button>
-                {card.sent && <span className="perm-sending">sending {card.sent === 'allow-remember' ? 'allow' : card.sent}…</span>}
+                {card.sent && <span className="perm-sending">{t('permissions.sending', { decision: card.sent === 'allow-remember' ? 'allow' : card.sent })}</span>}
               </div>
             )}
           </div>

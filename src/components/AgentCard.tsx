@@ -20,6 +20,7 @@ import {
   historyMark, transcriptEmptyText, transcriptLine, fallbackInspection, promptAndReply, shortSession, derivedNote, cardSide,
 } from '../inspector'
 import { getUiToken } from '../permissions'
+import { t, useLocale } from '../i18n'
 import '../styles/inspector.css'
 
 interface AgentCardProps {
@@ -33,6 +34,7 @@ interface AgentCardProps {
 }
 
 const AgentCard: React.FC<AgentCardProps> = ({ agentId, agent, sessions = [], onClose }) => {
+  useLocale() // Why: re-render the card's own t() strings on a language toggle
   const [data, setData] = useState<Inspection | null>(null)
   const [missing, setMissing] = useState<'unknown' | 'unreachable' | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -100,8 +102,8 @@ const AgentCard: React.FC<AgentCardProps> = ({ agentId, agent, sessions = [], on
   const insp: Inspection | null = data ?? (agent ? fallbackInspection(agent, sessions) : null)
   if (!insp) {
     return (
-      <div className={`agent-card side-${side}`} role="dialog" aria-label="Agent inspector" data-testid="agent-card">
-        <div className="ac-head"><span className="ac-name">…</span><button className="ac-close" onClick={onClose} aria-label="Close">×</button></div>
+      <div className={`agent-card side-${side}`} role="dialog" aria-label={t('agentCard.ariaLabel')} data-testid="agent-card">
+        <div className="ac-head"><span className="ac-name">…</span><button className="ac-close" onClick={onClose} aria-label={t('agentCard.close')}>×</button></div>
       </div>
     )
   }
@@ -127,70 +129,70 @@ const AgentCard: React.FC<AgentCardProps> = ({ agentId, agent, sessions = [], on
       <div className="ac-head">
         <span className="ac-dot" style={{ background: color }} aria-hidden="true" />
         <span className="ac-name">{insp.name}</span>
-        <span className="ac-role">{isMain ? 'session claude' : insp.role}</span>
+        <span className="ac-role">{isMain ? t('agentCard.sessionClaude') : insp.role}</span>
         {model && <span className="ac-model" title={insp.model ?? insp.stats.model}>{model}</span>}
-        <button className="ac-close" onClick={onClose} aria-label="Close" title="Close (Esc)">×</button>
+        <button className="ac-close" onClick={onClose} aria-label={t('agentCard.close')} title={t('agentCard.closeTooltip')}>×</button>
       </div>
 
       <div className="ac-state-row">
         <span className={`ac-state state-${isMain ? (insp.main?.state ?? session?.main?.state ?? 'unknown') : insp.state}`}>{stateText}</span>
-        {elapsed && <span className="ac-elapsed" title={done ? 'how long it took' : 'how long it has been at it'}>{done ? 'took' : 'for'} {elapsed}</span>}
+        {elapsed && <span className="ac-elapsed" title={done ? t('agentCard.howLongTook') : t('agentCard.howLongFor')}>{t(done ? 'agentCard.took' : 'agentCard.for', { elapsed })}</span>}
       </div>
 
       {isBoss ? (
-        <div className="ac-section"><div className="ac-text">That is you.</div></div>
+        <div className="ac-section"><div className="ac-text">{t('agentCard.that')}</div></div>
       ) : (
         <>
           {!isMain && (
             <div className="ac-section">
-              <div className="ac-h">Task</div>
-              <div className="ac-text">{insp.task || <span className="ac-empty">no task text</span>}</div>
+              <div className="ac-h">{t('agentCard.task')}</div>
+              <div className="ac-text">{insp.task || <span className="ac-empty">{t('agentCard.noTaskText')}</span>}</div>
               {insp.status && <div className="ac-sub" title={insp.status}>{insp.lastError && insp.status === insp.lastError ? '✗ ' : '› '}{insp.status}</div>}
             </div>
           )}
 
           {isMain && insp.hooked === false && (
-            <div className="ac-section"><div className="ac-empty">not hooked: known from Claude Code's session registry only, so there is no turn to show yet</div></div>
+            <div className="ac-section"><div className="ac-empty">{t('agentCard.notHooked')}</div></div>
           )}
 
           {isMain && (
             <div className="ac-section">
-              <div className="ac-h">Last prompt</div>
-              <div className="ac-text ac-quote">{hidden ? <span className="ac-empty">hidden: prompts off</span> : prompt ? prompt : <span className="ac-empty">nothing yet</span>}</div>
-              <div className="ac-h">Last reply</div>
-              <div className="ac-text ac-quote">{hidden ? <span className="ac-empty">hidden: prompts off</span> : reply ? reply : <span className="ac-empty">nothing yet</span>}</div>
+              <div className="ac-h">{t('agentCard.lastPrompt')}</div>
+              <div className="ac-text ac-quote">{hidden ? <span className="ac-empty">{t('agentCard.hiddenPromptsOff')}</span> : prompt ? prompt : <span className="ac-empty">{t('agentCard.nothingYet')}</span>}</div>
+              <div className="ac-h">{t('agentCard.lastReply')}</div>
+              <div className="ac-text ac-quote">{hidden ? <span className="ac-empty">{t('agentCard.hiddenPromptsOff')}</span> : reply ? reply : <span className="ac-empty">{t('agentCard.nothingYet')}</span>}</div>
               <div className="ac-kv">
                 {insp.main?.needsYou && <span className="ac-kv-item needs-you">✋ {insp.main.needsYou.toolName ?? insp.main.needsYou.kind}{insp.main.needsYou.summary ? ` · ${insp.main.needsYou.summary}` : ''}</span>}
-                <span className="ac-kv-item">crons {insp.crons ?? insp.main?.crons ?? 0}</span>
-                <span className="ac-kv-item">waiting on {insp.main?.waitingOn ?? 0}</span>
-                {typeof insp.stats.contextTokens === 'number' && <span className="ac-kv-item" title="the last message's usage: how full the context window is">context {formatTokensShort(insp.stats.contextTokens)} tok</span>}
-                {insp.session && <span className="ac-kv-item">{insp.session.agentCount ?? 0} worker{(insp.session.agentCount ?? 0) === 1 ? '' : 's'}</span>}
+                <span className="ac-kv-item">{t('agentCard.crons', { n: insp.crons ?? insp.main?.crons ?? 0 })}</span>
+                <span className="ac-kv-item">{t('agentCard.waitingOn', { n: insp.main?.waitingOn ?? 0 })}</span>
+                {typeof insp.stats.contextTokens === 'number' && <span className="ac-kv-item" title="the last message's usage: how full the context window is">{t('agentCard.contextTokens', { n: formatTokensShort(insp.stats.contextTokens) })}</span>}
+                {insp.session && <span className="ac-kv-item">{t((insp.session.agentCount ?? 0) === 1 ? 'agentCard.workerCount' : 'agentCard.workerCountPlural', { n: insp.session.agentCount ?? 0 })}</span>}
               </div>
             </div>
           )}
 
           <div className="ac-section ac-where">
-            <div className="ac-h">Where</div>
+            <div className="ac-h">{t('agentCard.where')}</div>
             <div className="ac-text">
-              {insp.project ?? <span className="ac-empty">no project</span>}
+              {insp.project ?? <span className="ac-empty">{t('agentCard.noProject')}</span>}
               {insp.title ? ` · ${insp.title}` : ''}
-              {shortSession(insp.sessionId) ? <span className="ac-muted"> · session {shortSession(insp.sessionId)}</span> : <span className="ac-empty"> · no session</span>}
+              {(() => { const sid = shortSession(insp.sessionId); return sid ? <span className="ac-muted"> · {t('agentCard.sessionId', { id: sid })}</span> : <span className="ac-empty"> · {t('agentCard.noSession')}</span> })()}
             </div>
             {insp.cwd && <div className="ac-sub" title={insp.cwd}>{insp.cwd}</div>}
           </div>
 
           <div className="ac-section">
-            <div className="ac-h">Tools{calls ? ` · ${calls} call${calls === 1 ? '' : 's'}` : ''}</div>
-            {insp.restored && <div className="ac-sub">the office server restarted: tools since then</div>}
+            <div className="ac-h">{calls ? t(calls === 1 ? 'agentCard.toolsWithCalls' : 'agentCard.toolsWithCallsPlural', { n: calls }) : t('agentCard.tools')}</div>
+            {insp.restored && <div className="ac-sub">{t('agentCard.restored')}</div>}
             {counts.length === 0 ? (
-              <div className="ac-empty">no tools yet</div>
+              <div className="ac-empty">{t('agentCard.noToolsYet')}</div>
             ) : (
               <div className="ac-chips">
                 {counts.map(r => <span key={r.tool} className="ac-chip" title={r.tool}>{r.tool} <b>{r.n}</b></span>)}
               </div>
             )}
             {history.length > 0 && (
-              <ul className="ac-hist" aria-label={`last ${history.length} entries`}>
+              <ul className="ac-hist" aria-label={t('agentCard.lastEntries', { n: history.length })}>
                 {history.map((h, i) => (
                   <li key={`${h.at}-${i}`} className={`kind-${h.kind}`} title={h.text}>
                     <span className="ac-time">{clockTime(h.at)}</span>
@@ -204,20 +206,20 @@ const AgentCard: React.FC<AgentCardProps> = ({ agentId, agent, sessions = [], on
 
           {!isMain && (
             <div className="ac-section">
-              <div className="ac-h">{done ? 'Finished' : 'Lineage'}</div>
-              {done && (finished.length ? <div className="ac-text">{finished.join(' · ')}</div> : <div className="ac-empty">no totals reported</div>)}
-              {!done && finished.length > 0 && <div className="ac-text">so far: {finished.join(' · ')}</div>}
+              <div className="ac-h">{done ? t('agentCard.finished') : t('agentCard.lineage')}</div>
+              {done && (finished.length ? <div className="ac-text">{finished.join(' · ')}</div> : <div className="ac-empty">{t('agentCard.noTotals')}</div>)}
+              {!done && finished.length > 0 && <div className="ac-text">{t('agentCard.soFar', { text: finished.join(' · ') })}</div>}
               {derived && finished.length > 0 && <div className="ac-sub" title={derived}>{derived}</div>}
               <div className="ac-kv">
-                <span className="ac-kv-item">{insp.stats.parent ? `parent ${insp.stats.parent.name}` : 'spawned by the session'}</span>
-                {insp.background && <span className="ac-kv-item">background</span>}
-                <span className={`ac-kv-item${insp.stats.unread ? ' unread' : ''}`}>✉ {insp.stats.unread} unread</span>
+                <span className="ac-kv-item">{insp.stats.parent ? t('agentCard.parent', { name: insp.stats.parent.name }) : t('agentCard.spawnedBySession')}</span>
+                {insp.background && <span className="ac-kv-item">{t('agentCard.background')}</span>}
+                <span className={`ac-kv-item${insp.stats.unread ? ' unread' : ''}`}>{t('agentCard.unread', { n: insp.stats.unread })}</span>
               </div>
             </div>
           )}
 
           <div className="ac-section">
-            <div className="ac-h">Transcript</div>
+            <div className="ac-h">{t('agentCard.transcript')}</div>
             {emptyTranscript ? (
               <div className="ac-empty">{emptyTranscript}</div>
             ) : (
@@ -237,10 +239,10 @@ const AgentCard: React.FC<AgentCardProps> = ({ agentId, agent, sessions = [], on
 
       <div className="ac-foot">
         {source === 'server'
-          ? (missing === 'unknown' ? 'the server has let it go — last known' : missing === 'unreachable' ? 'office server not reachable — last known' : 'live · refreshes every 2 s')
-          : missing === 'unreachable' ? 'office server not reachable — showing what the office knows'
-          : missing === 'unknown' ? 'not a server agent — showing what the office knows'
-          : 'loading…'}
+          ? (missing === 'unknown' ? t('agentCard.footerGone') : missing === 'unreachable' ? t('agentCard.footerUnreachable') : t('agentCard.footerLive'))
+          : missing === 'unreachable' ? t('agentCard.footerUnreachableOffice')
+          : missing === 'unknown' ? t('agentCard.footerNotServerAgent')
+          : t('agentCard.footerLoading')}
       </div>
     </div>
   )

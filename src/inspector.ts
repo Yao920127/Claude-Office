@@ -9,6 +9,7 @@
 import type { Agent, NeedsYou, SessionInfo, SessionMain } from './types'
 import { formatElapsed, formatTokensShort, isMainAgent, needsYouLabel, shortModel } from './mainState'
 import { officeHttpBase } from './serverUrl'
+import { t } from './i18n'
 
 /** GET /agents/:id on the office server (wherever src/serverUrl.ts says it is) */
 export function inspectUrl(agentId: string, base: string = officeHttpBase()): string {
@@ -97,32 +98,32 @@ export type InspectSource = 'server' | 'office' | 'loading'
 export function mainStateLabel(main: SessionMain | undefined, waitingOn?: number, needsYou?: NeedsYou): string {
   const state = main?.state
   switch (state) {
-    case 'working':    return 'working'
+    case 'working':    return t('inspector.working')
     case 'waiting': {
       const n = main?.waitingOn ?? waitingOn ?? 0
-      return `waiting on ${n} worker${n === 1 ? '' : 's'}`
+      return t(n === 1 ? 'inspector.waitingOnWorker' : 'inspector.waitingOnWorkerPlural', { n })
     }
-    case 'idle':       return 'idle'
-    case 'needs-you':  return (main?.needsYou ?? needsYou) ? needsYouLabel((main?.needsYou ?? needsYou)!).replace(/^[^\w]*/, '') : 'needs you'
-    case 'error':      return `API error${main?.error?.error ? `: ${main.error.error}` : ''}${main?.error?.detail ? ` — ${main.error.detail}` : ''}`
-    case 'compacting': return 'compacting'
-    default:           return 'not heard from yet'
+    case 'idle':       return t('inspector.idle')
+    case 'needs-you':  return (main?.needsYou ?? needsYou) ? needsYouLabel((main?.needsYou ?? needsYou)!).replace(/^[^\w]*/, '') : t('inspector.needsYou')
+    case 'error':      return (main?.error?.error ? t('inspector.apiErrorWith', { error: main.error.error }) : t('inspector.apiError')) + (main?.error?.detail ? t('inspector.apiErrorDetail', { detail: main.error.detail }) : '')
+    case 'compacting': return t('inspector.compacting')
+    default:           return t('inspector.notHeardFrom')
   }
 }
 
 /** A worker's state in words */
 export function workerStateLabel(state: string | undefined): string {
   switch (state) {
-    case 'new-hire':            return 'arriving'
-    case 'walking-to-desk':     return 'walking to the desk'
-    case 'walking-to-manager':  return 'walking over'
-    case 'talking-to-manager':  return 'talking'
-    case 'coffee-break':        return 'on a break'
-    case 'waiting':             return 'waiting for a desk'
-    case 'changing-room':       return 'changing'
-    case 'completed':           return 'finished'
-    case 'working':             return 'working'
-    case 'idle':                return 'idle'
+    case 'new-hire':            return t('inspector.state.arriving')
+    case 'walking-to-desk':     return t('inspector.state.walkingToDesk')
+    case 'walking-to-manager':  return t('inspector.state.walkingOver')
+    case 'talking-to-manager':  return t('inspector.state.talking')
+    case 'coffee-break':        return t('inspector.state.onBreak')
+    case 'waiting':             return t('inspector.state.waitingForDesk')
+    case 'changing-room':       return t('inspector.state.changing')
+    case 'completed':           return t('inspector.state.finished')
+    case 'working':             return t('inspector.state.working')
+    case 'idle':                return t('inspector.state.idle')
     default:                    return state ?? 'unknown'
   }
 }
@@ -168,17 +169,17 @@ export function finishedStats(stats: InspectStats): string[] {
   const parts: string[] = []
   if (typeof stats.tokens === 'number') parts.push(`${formatTokensShort(stats.tokens)} tok`)
   if (typeof stats.durationMs === 'number') parts.push(formatElapsed(stats.durationMs))
-  if (typeof stats.toolUses === 'number') parts.push(`${stats.toolUses} tool use${stats.toolUses === 1 ? '' : 's'}`)
+  if (typeof stats.toolUses === 'number') parts.push(t(stats.toolUses === 1 ? 'inspector.toolUse' : 'inspector.toolUsePlural', { n: stats.toolUses }))
   const model = shortModel(stats.model)
   if (model) parts.push(model)
   return parts
 }
 
-const DERIVED_LABELS: Record<string, string> = {
-  tokens: 'tokens and model from its transcript',
-  model: 'model from its transcript',
-  durationMs: 'duration from spawn to finish',
-  toolUses: 'tool uses the hook saw',
+const DERIVED_KEYS: Record<string, string> = {
+  tokens: 'inspector.derived.tokens',
+  model: 'inspector.derived.model',
+  durationMs: 'inspector.derived.durationMs',
+  toolUses: 'inspector.derived.toolUses',
 }
 
 /** "worked out by the office: tokens and model from its transcript, duration from spawn to finish" — null when Claude Code reported everything */
@@ -187,7 +188,7 @@ export function derivedNote(stats: Pick<InspectStats, 'derived'>): string | null
   if (!derived.length) return null
   // tokens and model come from the same place: one phrase for both
   const keys = derived.includes('tokens') ? derived.filter(k => k !== 'model') : derived
-  return `worked out by the office: ${keys.map(k => DERIVED_LABELS[k] ?? k).join(', ')}`
+  return t('inspector.derivedNote', { keys: keys.map(k => (DERIVED_KEYS[k] ? t(DERIVED_KEYS[k]) : k)).join(', ') })
 }
 
 /** The marker in front of a history row */
@@ -205,15 +206,15 @@ export function historyMark(kind: HistoryKind): string {
 export function transcriptEmptyText(insp: Pick<Inspection, 'transcriptAvailable' | 'transcriptReason' | 'transcript'>): string | null {
   if (!insp.transcriptAvailable) {
     switch (insp.transcriptReason) {
-      case 'prompts off':               return 'transcript hidden: prompts off'
+      case 'prompts off':               return t('inspector.transcript.promptsOff')
       // The page has no UI token until the WebSocket snapshot arrives
-      case 'needs the office token':    return 'transcript appears once the office is connected'
-      case 'no transcript path yet':    return 'no transcript yet'
-      case 'transcript file not found': return 'transcript file not found'
-      default:                          return 'transcript unavailable'
+      case 'needs the office token':    return t('inspector.transcript.needsToken')
+      case 'no transcript path yet':    return t('inspector.transcript.noPathYet')
+      case 'transcript file not found': return t('inspector.transcript.notFound')
+      default:                          return t('inspector.transcript.unavailable')
     }
   }
-  return insp.transcript && insp.transcript.length ? null : 'nothing said yet'
+  return insp.transcript && insp.transcript.length ? null : t('inspector.transcript.nothingSaid')
 }
 
 /** One transcript entry as a line: "Bash — ls /etc | wc -l" or the text */

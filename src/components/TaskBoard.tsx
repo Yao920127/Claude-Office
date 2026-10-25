@@ -26,6 +26,7 @@ import {
   BOARD_RECT, COLUMNS, FX_MS, boardCounts, boardLabel, columnView, cycleTaskBoards, isBlocked, shownBoard, taskCaption,
   useTaskBoards, type BoardTask, type TaskBoardInfo, type TaskFx,
 } from '../taskBoard'
+import { t, useLocale } from '../i18n'
 import '../styles/taskboard.css'
 
 interface TaskBoardProps {
@@ -59,6 +60,7 @@ const Note: React.FC<{
 const TaskBoard: React.FC<TaskBoardProps> = ({ sessions, night, onActivate }) => {
   const state = useTaskBoards()
   const theme = useTheme()
+  useLocale() // Why: re-render the board's t() labels on a language toggle
   const [hovered, setHovered] = useState<string | null>(null)
 
   const board = shownBoard(state)
@@ -93,8 +95,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ sessions, night, onActivate }) =>
         }}
         role="button"
         tabIndex={0}
-        aria-label={`Task board, ${label}: ${counts.pending} to do, ${counts.in_progress} in progress, ${counts.completed} done${several ? '. Click for the next session' : ''}`}
-        title={several ? 'Task board: click for the next session' : 'Task board'}
+        aria-label={t('taskBoard.ariaLabel', { label, pending: counts.pending, inProgress: counts.in_progress, completed: counts.completed, suffix: several ? t('taskBoard.ariaLabel.clickNext') : '' })}
+        title={several ? t('taskBoard.titleClickNext') : t('taskBoard.title')}
         onClick={activate}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') activate(e) }}
       >
@@ -104,12 +106,12 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ sessions, night, onActivate }) =>
             const view = columnView(board, col.status, { keep })
             return (
               <div key={col.status} className={`task-col ${col.status}`} style={{ width: `${col.width}%` }}>
-                <div className="task-col-title">{col.title}</div>
+                <div className="task-col-title">{t(col.titleKey)}</div>
                 <div className="task-col-notes">
                   {view.shown.map(task => (
                     <Note key={task.id} task={task} board={board} fx={fx[task.id]} onHover={id => setHovered(id)} />
                   ))}
-                  {view.more > 0 && <span className="task-more" aria-label={`${view.more} more`}>+{view.more}</span>}
+                  {view.more > 0 && <span className="task-more" aria-label={t('taskBoard.more', { n: view.more })}>+{view.more}</span>}
                 </div>
               </div>
             )

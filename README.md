@@ -1,5 +1,7 @@
 # Claude Office
 
+**English** | [繁體中文](README.zh-TW.md)
+
 A pixel art virtual office that visualizes your AI agents working in real-time. Watch Claude Code agents spawn, sit at desks, take coffee breaks, and chat in a Slack-inspired office chat panel — all rendered in an isometric pixel art office.
 
 ## Update — 1.1: the level-up
